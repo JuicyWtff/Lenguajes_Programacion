@@ -14,36 +14,38 @@
     posicion_partida/1
 ]).
 
-pieza_en([pieza(Color, Tipo, C, F) | _], C, F, pieza(Color, Tipo, C, F)).
+pieza_en([pieza(Color, Tipo, C, F) | _], C, F, pieza(Color, Tipo, C, F)). % que pieza hay en una casilla
 pieza_en([_ | Resto], C, F, P) :-
     pieza_en(Resto, C, F, P).
 
-ocupada(Tablero, C-F) :-
+ocupada(Tablero, C-F) :-       %Hay algo en esa casilla
     pieza_en(Tablero, C, F, _).
 
-color_en(Tablero, C-F, Color) :-
+color_en(Tablero, C-F, Color) :- %Que color es la pieza
     pieza_en(Tablero, C, F, pieza(Color, _, _, _)).
 
-dentro(C, F) :-
+dentro(C, F) :- %La casilla existe en el tablero?
     integer(C), integer(F),
     C >= 1, C =< 8,
     F >= 1, F =< 8.
 
-casilla(C-F) :-
+casilla(C-F) :- %Genera las 64 casillas
     between(1, 8, C),
     between(1, 8, F).
 
-contrario(blanca, negra).
+contrario(blanca, negra). %Color opuesto
 contrario(negra, blanca).
 
-casilla_rey(Tablero, Color, C-F) :-
+casilla_rey(Tablero, Color, C-F) :-  %Donde está el rey de cada color
     pieza_en(Tablero, C, F, pieza(Color, rey, _, _)).
 
-nombre_casilla(C-F, Nombre) :-
+nombre_casilla(C-F, Nombre) :- %Formato casilla
     nth1(C, [a,b,c,d,e,f,g,h], Letra),
     atom_number(NF, F),
     atom_concat(Letra, NF, Nombre).
 
+
+%Posiciones precargadas
 posicion_inicial([
     pieza(blanca, rey, 5, 1),
     pieza(negra, torre, 5, 8),

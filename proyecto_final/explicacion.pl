@@ -1,7 +1,9 @@
 :- module(explicacion, [
     ilegal_porque/5,
     explicar/4,
-    explicar_estado/2
+    explicar_estado/2,
+    texto_razon/2,
+    texto_estado/3
 ]).
 
 :- use_module(tablero).

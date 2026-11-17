@@ -3,6 +3,7 @@
     jaque_mate/2,
     ahogado/2,
     clavada/3,
+    clavada_inmovil/3,
     clavadas/2,
     estado/3
 ]).
@@ -23,7 +24,17 @@ ahogado(Tablero, Color) :-
     \+ en_jaque(Tablero, Color),
     \+ existe_jugada_legal(Tablero, Color).
 
+% Una pieza esta clavada cuando el rey propio no esta en jaque, pero lo
+% estaria si esa pieza se retirara del tablero.
 clavada(Tablero, Color, C-F) :-
+    pieza_en(Tablero, C, F, pieza(Color, Tipo, _, _)),
+    Tipo \== rey,
+    \+ en_jaque(Tablero, Color),
+    sin_pieza_en(Tablero, C-F, SinPieza),
+    en_jaque(SinPieza, Color).
+
+% Caso particular: pieza con jugadas pseudo-legales pero ninguna legal.
+clavada_inmovil(Tablero, Color, C-F) :-
     pieza_en(Tablero, C, F, pieza(Color, Tipo, _, _)),
     Tipo \== rey,
     once(pseudo_legal(Tablero, Color, C-F, _)),

@@ -2,6 +2,8 @@
     ilegal_porque/5,
     explicar/4,
     explicar_estado/2,
+    explicar_con_arbol/4,
+    explicar_estado_con_arbol/2,
     texto_razon/2,
     texto_estado/3
 ]).
@@ -11,6 +13,11 @@
 :- use_module(caminos).
 :- use_module(legalidad).
 :- use_module(estados).
+:- use_module(metainterprete).
+
+%% ---------------------------------------------------------------
+%% Causas de ilegalidad.
+%% ---------------------------------------------------------------
 
 ilegal_porque(Tablero, _, Origen, _, sin_pieza_en_origen(N)) :-
     \+ pieza_en_casilla(Tablero, Origen),
@@ -34,6 +41,23 @@ ilegal_porque(Tablero, Color, Origen, Destino, patron_invalido(Tipo)) :-
     dentro_casilla(Destino),
     \+ color_en(Tablero, Destino, Color),
     \+ patron_cualquiera(Color, Tipo, Origen, Destino).
+
+ilegal_porque(Tablero, Color, Origen, Destino, peon_sin_captura(N)) :-
+    pieza_en_color(Tablero, Origen, Color, peon),
+    dentro_casilla(Destino),
+    patron_peon(Color, Origen, Destino, captura),
+    \+ ocupada(Tablero, Destino),
+    nombre_casilla(Destino, N).
+
+ilegal_porque(Tablero, Color, Origen, Destino, peon_bloqueado(N)) :-
+    pieza_en_color(Tablero, Origen, Color, peon),
+    dentro_casilla(Destino),
+    (   patron_peon(Color, Origen, Destino, avance)
+    ;   patron_peon(Color, Origen, Destino, avance_doble)
+    ),
+    color_en(Tablero, Destino, Otro),
+    Otro \== Color,
+    nombre_casilla(Destino, N).
 
 ilegal_porque(Tablero, Color, Origen, Destino, camino_bloqueado(N)) :-
     pieza_en_color(Tablero, Origen, Color, Tipo),
@@ -96,15 +120,25 @@ buscar_bloqueo(Tablero, C-F, Destino, DC-DF, Casilla) :-
     F2 is F + DF,
     buscar_bloqueo(Tablero, C2-F2, Destino, DC-DF, Casilla).
 
+%% ---------------------------------------------------------------
+%% Dictamen en texto
+%% ---------------------------------------------------------------
+
+nombre_seguro(Casilla, Nombre) :-
+    (   nombre_casilla(Casilla, N)
+    ->  Nombre = N
+    ;   format(atom(Nombre), "~w", [Casilla])
+    ).
+
 explicar(Tablero, Color, Origen, Destino) :-
     legal(Tablero, Color, Origen, Destino),
     !,
-    nombre_casilla(Origen, NO),
-    nombre_casilla(Destino, ND),
+    nombre_seguro(Origen, NO),
+    nombre_seguro(Destino, ND),
     format("Movimiento ~w-~w: LEGAL~n", [NO, ND]).
 explicar(Tablero, Color, Origen, Destino) :-
-    nombre_casilla(Origen, NO),
-    nombre_casilla(Destino, ND),
+    nombre_seguro(Origen, NO),
+    nombre_seguro(Destino, ND),
     format("Movimiento ~w-~w: ILEGAL~n", [NO, ND]),
     findall(R, ilegal_porque(Tablero, Color, Origen, Destino, R), Razones),
     imprimir_razones(Razones).
@@ -125,6 +159,12 @@ texto_razon(captura_propia(N), Texto) :-
     format(atom(Texto), "En ~w hay una pieza propia: no puedes capturarla.", [N]).
 texto_razon(patron_invalido(Tipo), Texto) :-
     format(atom(Texto), "Un ~w no se mueve de esa forma.", [Tipo]).
+texto_razon(peon_sin_captura(N), Texto) :-
+    format(atom(Texto),
+           "El peon solo se mueve en diagonal para capturar y en ~w no hay ninguna pieza rival.",
+           [N]).
+texto_razon(peon_bloqueado(N), Texto) :-
+    format(atom(Texto), "El peon no puede avanzar: en ~w hay una pieza que lo bloquea.", [N]).
 texto_razon(camino_bloqueado(N), Texto) :-
     format(atom(Texto), "El camino esta bloqueado por la pieza en ~w.", [N]).
 texto_razon(deja_rey_en_jaque(NR, Atacante, NA), Texto) :-
@@ -145,3 +185,37 @@ texto_estado(jaque, Color, Texto) :-
     format(atom(Texto), "JAQUE: el rey ~w esta atacado pero tiene escapatoria.", [Color]).
 texto_estado(normal, Color, Texto) :-
     format(atom(Texto), "Posicion normal para el bando ~w.", [Color]).
+
+%% ---------------------------------------------------------------
+%% Dictamen con arbol de derivacion (usa el metainterprete)
+%% ---------------------------------------------------------------
+
+explicar_con_arbol(Tablero, Color, Origen, Destino) :-
+    nombre_seguro(Origen, NO),
+    nombre_seguro(Destino, ND),
+    (   legal(Tablero, Color, Origen, Destino)
+    ->  format("Movimiento ~w-~w: LEGAL~n", [NO, ND]),
+        once(derivar(legal(Tablero, Color, Origen, Destino), Arbol)),
+        mostrar_arbol(Arbol)
+    ;   format("Movimiento ~w-~w: ILEGAL~n", [NO, ND]),
+        (   once(derivar(ilegal_porque(Tablero, Color, Origen, Destino, Causa), Arbol))
+        ->  texto_razon(Causa, Texto),
+            format("  ~w~n", [Texto]),
+            mostrar_arbol(Arbol)
+        ;   format("  Motivo no determinado.~n")
+        )
+    ).
+
+explicar_estado_con_arbol(Tablero, Color) :-
+    estado(Tablero, Color, Estado),
+    texto_estado(Estado, Color, Texto),
+    format("~w~n", [Texto]),
+    (   estado_objetivo(Estado, Tablero, Color, Objetivo)
+    ->  once(derivar(Objetivo, Arbol)),
+        mostrar_arbol(Arbol)
+    ;   true
+    ).
+
+estado_objetivo(jaque_mate, Tablero, Color, jaque_mate(Tablero, Color)).
+estado_objetivo(ahogado, Tablero, Color, ahogado(Tablero, Color)).
+estado_objetivo(jaque, Tablero, Color, en_jaque(Tablero, Color)).
